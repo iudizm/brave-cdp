@@ -32,15 +32,24 @@ $B/stop.sh --clean
 
 ## Segurança
 
-- `run.mjs` executa JavaScript arbitrário em Node com as permissões do seu usuário (é o propósito da skill).
-  Liberar `node …/run.mjs` no allowlist de permissões do Claude Code equivale a liberar execução arbitrária de código.
+O brave-cdp é feito para uso **supervisionado**: você acompanha a sessão e aprova o que o agente faz pelos prompts de
+permissão normais do Claude Code. Ele fecha os caminhos fáceis para escapar dessa supervisão, mas não consegue, sozinho,
+tornar seguro um agente que lê páginas web não confiáveis.
+
+- `run.mjs` executa JavaScript arbitrário em Node com as permissões do seu usuário (é o propósito da skill), e o
+  `start.sh` executa o que `BROWSER_BIN` apontar. Liberar qualquer um dos dois no allowlist do Claude Code equivale a
+  liberar execução arbitrária de código: aprove essas chamadas uma a uma, ou libere só em sandboxes descartáveis.
+- Páginas podem conter prompt injection. O `SKILL.md` instrui o agente a tratar o conteúdo das páginas como dado, nunca
+  como instrução, mas isso é mitigação, não garantia: fique de olho em ações que você não pediu.
 - Nenhuma porta CDP é aberta: um broker (`server.mjs`) segura o navegador via pipe e atende o `run.mjs` num socket Unix
   dentro de `/tmp/claude-brave-<uid>/` (modo 0700), então outros usuários locais não conseguem controlar o navegador.
   O sandbox do Chromium continua ligado (o Playwright o desligaria por padrão).
-- Com perfil persistente (`PROFILE=nome`) e sessões logadas, uma página maliciosa (prompt injection) pode induzir o
-  agente a agir como você nesses sites. Use só quando precisar. Perfis persistentes só podem ficar em
-  `~/.local/share/brave-cdp/profiles/`, então o navegador nunca pode ser apontado para o perfil do seu navegador do dia a dia.
-- Perfis temporários, logs e screenshots ficam em `/tmp/claude-brave-<uid>/` (modo 0700); `stop.sh --clean` os remove.
+- Com perfil persistente (`PROFILE=nome`) e sessões logadas, o agente age como você nesses sites. Use só quando
+  precisar. Perfis persistentes só podem ficar em `~/.local/share/brave-cdp/profiles/`, então o navegador nunca pode
+  ser apontado para o perfil do seu navegador do dia a dia.
+- Como qualquer navegador, ele alcança `localhost` e a sua rede local. O `grepScripts()` ignora scripts em hosts
+  privados, a menos que a própria página seja local.
+- Perfis temporários, logs, screenshots e o socket ficam em `/tmp/claude-brave-<uid>/`; `stop.sh --clean` os remove.
 
 ## Licença
 
