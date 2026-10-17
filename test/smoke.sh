@@ -2,7 +2,7 @@
 # End-to-end smoke test: starts a throwaway instance, drives a local page and cleans up.
 # usage: test/smoke.sh   (needs a browser like start.sh does; the recording check also needs ffmpeg)
 set -u
-BIN="$(cd "$(dirname "$0")/../bin" && pwd)"
+BIN="$(cd "$(dirname "$0")/../scripts" && pwd)"
 INSTANCE="smoke-$$"
 RUN_DIR="/tmp/claude-brave-$(id -u)"
 FAILS=0; SRV=

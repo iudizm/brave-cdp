@@ -37,7 +37,7 @@ cd ~/.claude/skills/brave-cdp && npm ci
 ```
 
 To clone it somewhere else, symlink it instead: `ln -s "$PWD" ~/.claude/skills/brave-cdp` (from inside the clone).
-`SKILL.md` calls the scripts through `~/.claude/skills/brave-cdp/bin`, so the skill must be reachable at that path.
+`SKILL.md` calls the scripts through `~/.claude/skills/brave-cdp/scripts`, so the skill must be reachable at that path.
 
 Requires **Linux**, Node 20+ and Brave (or Chromium / Playwright's Chromium as a fallback).
 The scripts use `setsid` and `flock` (util-linux) and `realpath` (coreutils); recording GIF/MP4/WebM demos needs `ffmpeg`.
@@ -47,7 +47,7 @@ Browsers installed via **snap** don't work (they get a private `/tmp`) and are s
 ## Quick start
 
 ```bash
-B=~/.claude/skills/brave-cdp/bin
+B=~/.claude/skills/brave-cdp/scripts
 $B/start.sh
 node $B/run.mjs -e 'await goto("https://example.com"); return text({max: 1500})'
 $B/stop.sh --clean

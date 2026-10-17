@@ -1,4 +1,4 @@
-// Regenerates docs/demo.gif: bin/start.sh demo && OUT=$PWD/docs/demo.gif node bin/run.mjs --instance demo docs/demo.js
+// Regenerates docs/demo.gif: scripts/start.sh demo && OUT=$PWD/docs/demo.gif node scripts/run.mjs --instance demo docs/demo.js
 await page.setViewportSize({ width: 1280, height: 800 });
 return await record(env.OUT, async () => {
   await goto('https://en.wikipedia.org/wiki/Special:Search', { wait: 800 });

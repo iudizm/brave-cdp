@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 
-const BIN = fileURLToPath(new URL('../bin/', import.meta.url));
+const BIN = fileURLToPath(new URL('../scripts/', import.meta.url));
 const RUNS = Number(process.argv[2] || 10);
 const INSTANCE = `bench-${process.pid}`;
 
