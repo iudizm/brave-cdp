@@ -5,6 +5,7 @@
 set -euo pipefail
 PORT="${1:-${CDP_PORT:-9333}}"
 . "$(dirname "$0")/lib.sh"
+PROFILE_SET="${PROFILE_DIR:+1}"
 PROFILE_DIR="$(realpath -m -- "${PROFILE_DIR:-$TMP_PROFILE}")"
 WINDOW="${WINDOW:-1400,1000}"
 # Never drive the user's everyday browser profile (logged-in sessions, saved passwords).
@@ -15,8 +16,12 @@ case "$PROFILE_DIR/" in
     echo "refusing to use a real browser profile: $PROFILE_DIR" >&2; exit 1;;
 esac
 
-if read_state && [ "$S_PROFILE" = "$PROFILE_DIR" ]; then
-  echo "already running on :$PORT (profile: $PROFILE_DIR)"; exit 0
+# Report the profile the running instance actually uses, which may differ from this call's env.
+if read_state; then
+  if [ -z "$PROFILE_SET" ] || [ "$S_PROFILE" = "$PROFILE_DIR" ]; then
+    echo "already running on :$PORT (profile: $S_PROFILE)"; exit 0
+  fi
+  echo "already running on :$PORT with profile $S_PROFILE, not $PROFILE_DIR; run stop.sh $PORT first or pick another port" >&2; exit 1
 fi
 # Anything answering on the port is not proof it is our browser (it could be the user's own browser,
 # or another local user's process), so refuse to share the port instead of attaching to it.
