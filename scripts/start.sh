@@ -26,6 +26,11 @@ if PING="$(client --ping 2>/dev/null)"; then
   echo "instance $INSTANCE already runs with profile $RUNNING, not $PROFILE_DIR; run stop.sh $INSTANCE first or pick another instance name" >&2; exit 1
 fi
 
+# The plugin install provides node_modules; a git clone needs `npm ci` first.
+ROOT_DIR="$(dirname -- "$SCRIPT_DIR")"
+(cd -- "$ROOT_DIR" && node -e 'require.resolve("playwright-core")' 2>/dev/null) \
+  || { echo "playwright-core is not installed: run 'npm ci' in $ROOT_DIR" >&2; exit 1; }
+
 # Snap browsers get a private /tmp, so we could neither see nor clean their profile.
 is_snap() { case "$(realpath -- "$1")" in /snap/*) return 0;; esac; grep -qa /snap/ < <(head -c 4096 -- "$1"); }
 
