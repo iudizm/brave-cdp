@@ -1,5 +1,6 @@
 # Shared helpers for start.sh / stop.sh (sourced; expects $PORT).
 
+[ "$(uname -s)" = Linux ] || { echo "brave-cdp supports Linux only" >&2; exit 1; }
 [[ "$PORT" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$PORT" -le 65535 ] || { echo "invalid port: $PORT" >&2; exit 1; }
 
 # Everything lives in a private per-user dir; refuse one that someone else planted in /tmp.

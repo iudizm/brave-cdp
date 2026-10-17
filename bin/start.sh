@@ -24,16 +24,20 @@ if ss -ltnH "sport = :$PORT" | grep -q .; then
   echo "port $PORT is in use by another process (not a browser started by this skill); pick another port" >&2; exit 1
 fi
 
+# Snap browsers get a private /tmp, so we could neither see nor clean their profile.
+is_snap() { case "$(realpath -- "$1")" in /snap/*) return 0;; esac; grep -qa /snap/ < <(head -c 4096 -- "$1"); }
+
 BIN="${BROWSER_BIN:-}"
+if [ -n "$BIN" ] && is_snap "$BIN"; then echo "snap browsers are not supported (private /tmp): $BIN" >&2; exit 1; fi
 if [ -z "$BIN" ]; then
   for c in brave-browser brave brave-browser-stable chromium chromium-browser; do
-    if command -v "$c" >/dev/null 2>&1; then BIN="$(command -v "$c")"; break; fi
+    if command -v "$c" >/dev/null 2>&1 && ! is_snap "$(command -v "$c")"; then BIN="$(command -v "$c")"; break; fi
   done
 fi
 if [ -z "$BIN" ]; then  # fall back to Playwright's bundled Chromium
   BIN="$(ls -d "$HOME"/.cache/ms-playwright/chromium-*/chrome-linux*/chrome 2>/dev/null | sort -V | tail -1 || true)"
 fi
-[ -n "$BIN" ] || { echo "no Chromium-based browser found; set BROWSER_BIN" >&2; exit 1; }
+[ -n "$BIN" ] || { echo "no (non-snap) Chromium-based browser found; set BROWSER_BIN or run: npx playwright-core install chromium" >&2; exit 1; }
 
 mkdir -p "$PROFILE_DIR"
 [ -O "$PROFILE_DIR" ] || { echo "profile $PROFILE_DIR is not owned by you" >&2; exit 1; }

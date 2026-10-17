@@ -12,7 +12,10 @@ cd ~/code/iudi/brave-cdp && npm ci
 ln -s ~/code/iudi/brave-cdp ~/.claude/skills/brave-cdp
 ```
 
-Requer Node 20+ e Brave (ou Chromium / Chromium do Playwright como fallback).
+Requer **Linux**, Node 20+ e Brave (ou Chromium / Chromium do Playwright como fallback).
+Os scripts usam `/proc`, `setsid` (util-linux), `ss` (iproute2) e `realpath` (coreutils).
+Navegadores instalados via **snap** não funcionam (têm `/tmp` privado) e são ignorados; use o pacote
+.deb/.rpm do Brave ou o Chromium do Playwright (`npx playwright-core install chromium` na pasta da skill).
 
 ## Uso rápido
 
