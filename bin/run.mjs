@@ -152,7 +152,7 @@ async function clickables(re, { max = 80 } = {}) {
 async function click(target, { wait = 1500 } = {}) {
   const loc = typeof target === 'string' && target.startsWith('css=')
     ? page.locator(target.slice(4))
-    : page.getByText(target instanceof RegExp ? target : new RegExp(target, 'i'));
+    : page.getByText(target instanceof RegExp ? target : new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
   await loc.locator('visible=true').first().click();
   if (wait) await sleep(wait);
 }

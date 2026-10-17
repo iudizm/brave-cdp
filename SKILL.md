@@ -40,7 +40,7 @@ Loop over inputs in Bash and save each result to a file, then summarize. That ke
 - `text({selector='body', max=4000, from, to, oneLine})`: visible text, squashed. Use `from`/`to` markers to slice only the relevant region. **Prefer this over screenshots.**
 - `shot(path?, {full})`: saves a screenshot and returns the path. Look at it with the Read tool when the layout is unclear (blank areas, modals, skeleton loaders).
 - `clickables(regex?)`: visible interactive elements with a selector hint (`[data-test-id=…]`, `#id`, `[name=…]`) and their label. This is the fastest way to find what to click.
-- `click(textOrRegex | 'css=<selector>')`: clicks the first *visible* match.
+- `click(textOrRegex | 'css=<selector>')`: clicks the first *visible* match. A string matches as literal, case-insensitive text.
 - `waitText(regex, timeout)`: waits until the page text matches.
 - `capture(urlRegex, async () => {...})`: collects (JSON-parsed) responses while running an action. Often the site's own API returns clean structured data. Read it instead of scraping.
 - `netlog(async () => {...})`: request/response/failure log, for debugging stuck UIs.
