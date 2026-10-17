@@ -31,26 +31,45 @@ Instructions for the agent: [`SKILL.md`](SKILL.md).
 
 ## Installation
 
+### As a plugin (recommended)
+
+In Claude Code:
+
+```
+/plugin install brave-cdp --marketplace iudizm/brave-cdp
+```
+
+On versions before 2.1.275, add the marketplace first: `/plugin marketplace add iudizm/brave-cdp`, then
+`/plugin install brave-cdp@brave-cdp`. Claude Code installs `playwright-core` by itself (it needs `npm` on the `PATH`).
+Claude picks the skill up when a task needs a browser; you can also call it as `/brave-cdp:brave-cdp`.
+New versions arrive with `claude plugin update brave-cdp@brave-cdp`, or automatically if you turn on auto-update for the marketplace in `/plugin`.
+
+### As a standalone skill
+
 ```bash
 git clone https://github.com/iudizm/brave-cdp.git ~/.claude/skills/brave-cdp
 cd ~/.claude/skills/brave-cdp && npm ci
 ```
 
 To clone it somewhere else, symlink it instead: `ln -s "$PWD" ~/.claude/skills/brave-cdp` (from inside the clone).
-`SKILL.md` calls the scripts through `~/.claude/skills/brave-cdp/scripts`, so the skill must be reachable at that path.
+Update with `git pull && npm ci`. Use either the plugin or the clone: if both are there, the plugin wins.
 
-Requires **Linux**, Node 20+ and Brave (or Chromium / Playwright's Chromium as a fallback).
+### Requirements
+
+**Linux**, Node 20+ and Brave (or Chromium / Playwright's Chromium as a fallback).
 The scripts use `setsid` and `flock` (util-linux) and `realpath` (coreutils); recording GIF/MP4/WebM demos needs `ffmpeg`.
 Browsers installed via **snap** don't work (they get a private `/tmp`) and are skipped; use Brave's
 .deb/.rpm package or Playwright's Chromium (`npx playwright-core install chromium` in the skill folder).
 
 ## Quick start
 
+Claude runs these for you. To try them by hand, from the skill folder (the clone, or the path that
+`claude plugin list --json` shows as `installPath`):
+
 ```bash
-B=~/.claude/skills/brave-cdp/scripts
-$B/start.sh
-node $B/run.mjs -e 'await goto("https://example.com"); return text({max: 1500})'
-$B/stop.sh --clean
+scripts/start.sh
+node scripts/run.mjs -e 'await goto("https://example.com"); return text({max: 1500})'
+scripts/stop.sh --clean
 ```
 
 To check an install (or a change), run `test/smoke.sh`: it drives a local page in a throwaway instance and cleans up.

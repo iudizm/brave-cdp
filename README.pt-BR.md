@@ -31,26 +31,45 @@ Instruções de uso para o agente: [`SKILL.md`](SKILL.md).
 
 ## Instalação
 
+### Como plugin (recomendado)
+
+No Claude Code:
+
+```
+/plugin install brave-cdp --marketplace iudizm/brave-cdp
+```
+
+Em versões anteriores à 2.1.275, adicione o marketplace antes: `/plugin marketplace add iudizm/brave-cdp`, depois
+`/plugin install brave-cdp@brave-cdp`. O Claude Code instala o `playwright-core` sozinho (precisa do `npm` no `PATH`).
+O Claude usa a skill quando uma tarefa precisa de navegador; você também pode chamá-la com `/brave-cdp:brave-cdp`.
+Versões novas chegam com `claude plugin update brave-cdp@brave-cdp`, ou sozinhas se você ativar o auto-update do marketplace no `/plugin`.
+
+### Como skill avulsa
+
 ```bash
 git clone https://github.com/iudizm/brave-cdp.git ~/.claude/skills/brave-cdp
 cd ~/.claude/skills/brave-cdp && npm ci
 ```
 
 Se preferir clonar em outro lugar, crie um symlink: `ln -s "$PWD" ~/.claude/skills/brave-cdp` (de dentro do clone).
-O `SKILL.md` chama os scripts por `~/.claude/skills/brave-cdp/scripts`, então a skill precisa estar acessível nesse caminho.
+Para atualizar, `git pull && npm ci`. Use o plugin ou o clone, não os dois: se ambos existirem, vale o plugin.
 
-Requer **Linux**, Node 20+ e Brave (ou Chromium / Chromium do Playwright como fallback).
+### Requisitos
+
+**Linux**, Node 20+ e Brave (ou Chromium / Chromium do Playwright como fallback).
 Os scripts usam `setsid` e `flock` (util-linux) e `realpath` (coreutils); gravar demos em GIF/MP4/WebM requer `ffmpeg`.
 Navegadores instalados via **snap** não funcionam (têm `/tmp` privado) e são ignorados; use o pacote
 .deb/.rpm do Brave ou o Chromium do Playwright (`npx playwright-core install chromium` na pasta da skill).
 
 ## Uso rápido
 
+O Claude roda isso por você. Para testar à mão, de dentro da pasta da skill (o clone, ou o caminho que
+`claude plugin list --json` mostra em `installPath`):
+
 ```bash
-B=~/.claude/skills/brave-cdp/scripts
-$B/start.sh
-node $B/run.mjs -e 'await goto("https://example.com"); return text({max: 1500})'
-$B/stop.sh --clean
+scripts/start.sh
+node scripts/run.mjs -e 'await goto("https://example.com"); return text({max: 1500})'
+scripts/stop.sh --clean
 ```
 
 Para conferir a instalação (ou uma mudança), rode `test/smoke.sh`: ele usa uma página local numa instância descartável e limpa tudo no fim.
