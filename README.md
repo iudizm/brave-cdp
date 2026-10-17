@@ -8,7 +8,7 @@ Instruções de uso para o agente: [`SKILL.md`](SKILL.md).
 
 ```bash
 git clone https://github.com/iudizm/brave-cdp.git ~/code/iudi/brave-cdp
-cd ~/code/iudi/brave-cdp && npm install
+cd ~/code/iudi/brave-cdp && npm ci
 ln -s ~/code/iudi/brave-cdp ~/.claude/skills/brave-cdp
 ```
 
