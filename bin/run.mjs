@@ -26,6 +26,7 @@ for (let i = 0; i < argv.length; i++) {
   else if (a === '-e') opt.code = argv[++i];
   else rest.push(a);
 }
+if (!/^[1-9]\d{0,4}$/.test(opt.port) || Number(opt.port) > 65535) { console.log(`ERR invalid port: ${opt.port}`); process.exit(2); }
 
 const stateFile = `/tmp/claude-brave-${opt.port}-tabs.json`;
 const loadState = () => { try { return JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { return {}; } };

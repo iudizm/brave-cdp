@@ -4,7 +4,8 @@
 # env:   BROWSER_BIN=/path/to/chromium-like  PROFILE_DIR=dir  HEADLESS=1  WINDOW=1400,1000
 set -euo pipefail
 PORT="${1:-${CDP_PORT:-9333}}"
-PROFILE_DIR="${PROFILE_DIR:-/tmp/claude-brave-$PORT}"
+[[ "$PORT" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$PORT" -le 65535 ] || { echo "invalid port: $PORT" >&2; exit 1; }
+PROFILE_DIR="$(realpath -m -- "${PROFILE_DIR:-/tmp/claude-brave-$PORT}")"
 WINDOW="${WINDOW:-1400,1000}"
 
 if curl -sf "http://localhost:$PORT/json/version" >/dev/null 2>&1; then
