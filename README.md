@@ -39,3 +39,7 @@ $B/stop.sh --clean
 - With a persistent `PROFILE_DIR` and logged-in sessions, a malicious page (prompt injection) can lead the agent to act
   as you on those sites. Use a persistent profile only when needed; `start.sh` refuses real browser profiles.
 - Temporary profiles, logs and screenshots live in `/tmp/claude-brave-<uid>/` (mode 0700); `stop.sh --clean` removes them.
+
+## License
+
+[MIT](LICENSE)
