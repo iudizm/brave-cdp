@@ -7,6 +7,13 @@ PORT="${1:-${CDP_PORT:-9333}}"
 . "$(dirname "$0")/lib.sh"
 PROFILE_DIR="$(realpath -m -- "${PROFILE_DIR:-$TMP_PROFILE}")"
 WINDOW="${WINDOW:-1400,1000}"
+# Never drive the user's everyday browser profile (logged-in sessions, saved passwords).
+H="$(realpath -m -- "$HOME")"
+case "$PROFILE_DIR/" in
+  "$H"/.config/BraveSoftware/*|"$H"/.config/google-chrome*/*|"$H"/.config/chromium/*|"$H"/.config/microsoft-edge*/*|\
+  "$H"/.config/vivaldi*/*|"$H"/.config/opera*/*|"$H"/snap/brave/*|"$H"/snap/chromium/*|"$H"/.var/app/*)
+    echo "refusing to use a real browser profile: $PROFILE_DIR" >&2; exit 1;;
+esac
 
 if read_state && [ "$S_PROFILE" = "$PROFILE_DIR" ]; then
   echo "already running on :$PORT (profile: $PROFILE_DIR)"; exit 0
