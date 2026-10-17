@@ -19,11 +19,12 @@ const opt = { tab: 'main', port: process.env.CDP_PORT || '9333' };
 const rest = [];
 for (let i = 0; i < argv.length; i++) {
   const a = argv[i];
-  if (a === '--tab') opt.tab = argv[++i];
-  else if (a === '--port') opt.port = argv[++i];
+  const val = () => { if (i + 1 >= argv.length) { console.log(`ERR ${a} needs a value`); process.exit(2); } return argv[++i]; };
+  if (a === '--tab') opt.tab = val();
+  else if (a === '--port') opt.port = val();
   else if (a === '--list') opt.list = true;
-  else if (a === '--close') opt.close = argv[++i];
-  else if (a === '-e') opt.code = argv[++i];
+  else if (a === '--close') opt.close = val();
+  else if (a === '-e') opt.code = val();
   else rest.push(a);
 }
 if (!/^[1-9]\d{0,4}$/.test(opt.port) || Number(opt.port) > 65535) { console.log(`ERR invalid port: ${opt.port}`); process.exit(2); }
@@ -37,7 +38,19 @@ try {
 } catch { console.log(`ERR ${RUN_DIR} missing or unsafe. Run start.sh first.`); process.exit(2); }
 const stateFile = `${RUN_DIR}/${opt.port}-tabs.json`;
 const loadState = () => { try { return JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { return {}; } };
-const saveState = (s) => fs.writeFileSync(stateFile, JSON.stringify(s));
+const saveState = (s) => { fs.writeFileSync(`${stateFile}.tmp`, JSON.stringify(s)); fs.renameSync(`${stateFile}.tmp`, stateFile); };
+// Serializes tab bookkeeping between concurrent run.mjs calls (mkdir is atomic).
+async function withLock(fn) {
+  const lock = `${stateFile}.lock`;
+  for (let t = 0; ; t++) {
+    try { fs.mkdirSync(lock); break; } catch (e) {
+      if (e.code !== 'EEXIST') throw e;
+      if (t > 100) { fs.rmSync(lock, { recursive: true, force: true }); t = 0; continue; } // stale (~10 s): a crashed run
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  try { return await fn(); } finally { fs.rmSync(lock, { recursive: true, force: true }); }
+}
 
 // The endpoint recorded by start.sh is trusted only if that file is ours and its browser is still alive,
 // owned by us and launched with the recorded profile and port. Anyone can listen on a localhost port.
@@ -61,6 +74,7 @@ try {
   process.exit(2);
 }
 const ctx = browser.contexts()[0];
+if (!ctx) { console.log('ERR browser has no default context'); await browser.close().catch(() => {}); process.exit(2); }
 
 async function targetId(p) {
   const s = await ctx.newCDPSession(p);
@@ -87,15 +101,19 @@ if (opt.list) {
   await finish();
 }
 if (opt.close) {
-  const p = await findTab(opt.close);
-  if (p) await p.close();
-  const s = loadState(); delete s[opt.close]; saveState(s);
+  const p = await withLock(async () => {
+    const p = await findTab(opt.close);
+    if (p) await p.close();
+    const s = loadState(); delete s[opt.close]; saveState(s);
+    return p;
+  });
   console.log(p ? `closed ${opt.close}` : `no tab ${opt.close}`);
   await finish();
 }
 
-let page = await findTab(opt.tab);
-if (!page) {
+const page = await withLock(async () => {
+  let page = await findTab(opt.tab);
+  if (page) return page;
   // Reuse the initial about:blank tab if nothing claimed it yet.
   const claimed = new Set(Object.values(loadState()));
   for (const p of ctx.pages()) {
@@ -103,7 +121,8 @@ if (!page) {
   }
   page = page || await ctx.newPage();
   const s = loadState(); s[opt.tab] = await targetId(page); saveState(s);
-}
+  return page;
+});
 // A fixed desktop viewport keeps responsive sites from switching to mobile layouts between calls.
 if (process.env.VIEWPORT !== 'none') {
   const [w, h] = (process.env.VIEWPORT || '1400x1000').split('x').map(Number);
@@ -140,9 +159,10 @@ async function clickables(re, { max = 80 } = {}) {
   const items = await page.$$eval(
     'a,button,input,select,textarea,[role=button],[role=link],[role=tab],[role=option],[role=checkbox],[onclick],[data-test-id],[data-testid],[data-test]',
     (els) => els.filter((e) => e.offsetParent || e.getClientRects().length).map((e) => {
-      const tid = e.getAttribute('data-test-id') || e.getAttribute('data-testid') || e.getAttribute('data-test');
-      const tidAttr = e.hasAttribute('data-test-id') ? 'data-test-id' : e.hasAttribute('data-testid') ? 'data-testid' : 'data-test';
-      const sel = tid ? `[${tidAttr}="${tid}"]` : e.id ? `#${e.id}` : e.name ? `${e.tagName.toLowerCase()}[name="${e.name}"]` : '';
+      const tidAttr = ['data-test-id', 'data-testid', 'data-test'].find((a) => e.getAttribute(a));
+      const id = e.getAttribute('id'), name = e.getAttribute('name'); // not e.id/e.name: forms can shadow those
+      const sel = tidAttr ? `[${tidAttr}="${CSS.escape(e.getAttribute(tidAttr))}"]` : id ? `#${CSS.escape(id)}`
+        : name ? `${e.tagName.toLowerCase()}[name="${CSS.escape(name)}"]` : '';
       const label = (e.innerText || e.value || e.getAttribute('aria-label') || e.placeholder || e.title || '').replace(/\s+/g, ' ').trim().slice(0, 80);
       return `${e.tagName.toLowerCase()}${e.type ? ':' + e.type : ''} ${sel} :: ${label}`;
     }));
