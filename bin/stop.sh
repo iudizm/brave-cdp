@@ -15,4 +15,4 @@ else
 fi
 rm -f "$STATE" "$TABS"
 # Only ever delete the temporary profile; a PROFILE_DIR chosen by the user is never touched.
-if [ "$CLEAN" = 1 ]; then rm -rf "$TMP_PROFILE" "$LOG"; echo "removed $TMP_PROFILE"; fi
+if [ "$CLEAN" = 1 ]; then rm -rf "$TMP_PROFILE" "$LOG" "$RUN_DIR/$PORT"-*.png; echo "removed $TMP_PROFILE"; fi

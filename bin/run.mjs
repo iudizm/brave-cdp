@@ -130,7 +130,7 @@ async function text({ selector = 'body', max = 4000, from, to, oneLine = false }
   return t.length > max ? t.slice(0, max) + `\n…[${t.length - max} more chars]` : t;
 }
 /** Screenshot; then use the Read tool on the returned path to look at it. */
-async function shot(path = `/tmp/claude-brave-${opt.tab}.png`, { full = false } = {}) {
+async function shot(path = `${RUN_DIR}/${opt.port}-${opt.tab.replace(/[^\w.-]/g, '_')}.png`, { full = false } = {}) {
   await page.screenshot({ path, fullPage: full });
   return path;
 }
