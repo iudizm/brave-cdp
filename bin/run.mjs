@@ -32,9 +32,23 @@ const stateFile = `/tmp/claude-brave-${opt.port}-tabs.json`;
 const loadState = () => { try { return JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { return {}; } };
 const saveState = (s) => fs.writeFileSync(stateFile, JSON.stringify(s));
 
+// The endpoint recorded by start.sh is trusted only if that file is ours and its browser is still alive,
+// owned by us and launched with the recorded profile and port. Anyone can listen on a localhost port.
+function endpoint() {
+  try {
+    const file = `/tmp/claude-brave-${opt.port}.instance`;
+    if (fs.statSync(file).uid !== process.getuid()) return null;
+    const [profile, pid, ws] = fs.readFileSync(file, 'utf8').split('\n');
+    if (!/^\d+$/.test(pid) || fs.statSync(`/proc/${pid}`).uid !== process.getuid()) return null;
+    const cmd = ` ${fs.readFileSync(`/proc/${pid}/cmdline`, 'utf8').replace(/\0/g, ' ')} `; // Chromium may rewrite it space-separated
+    return cmd.includes(` --user-data-dir=${profile} `) && cmd.includes(` --remote-debugging-port=${opt.port} `) ? ws : null;
+  } catch { return null; }
+}
+const ws = endpoint();
+if (!ws) { console.log(`ERR no browser started by start.sh on :${opt.port}. Run start.sh first.`); process.exit(2); }
 let browser;
 try {
-  browser = await chromium.connectOverCDP(`http://localhost:${opt.port}`);
+  browser = await chromium.connectOverCDP(ws);
 } catch (e) {
   console.log(`ERR cannot connect to CDP on :${opt.port}. Run start.sh first.`);
   process.exit(2);
