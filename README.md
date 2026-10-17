@@ -12,7 +12,7 @@ cd ~/code/iudi/brave-cdp && npm install
 ln -s ~/code/iudi/brave-cdp ~/.claude/skills/brave-cdp
 ```
 
-Requer Node 18+ e Brave (ou Chromium / Chromium do Playwright como fallback).
+Requer Node 20+ e Brave (ou Chromium / Chromium do Playwright como fallback).
 
 ## Uso rápido
 
