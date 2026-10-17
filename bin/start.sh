@@ -1,24 +1,26 @@
 #!/usr/bin/env bash
 # Start an isolated browser (Brave preferred), driven by server.mjs over a CDP pipe (no TCP port).
 # usage: start.sh [instance]   (default: "default")
-# env:   BROWSER_BIN=/path/to/chromium-like  PROFILE_DIR=dir  HEADLESS=1  WINDOW=1400,1000  VIEWPORT=1400x1000|none
+# env:   BROWSER_BIN=/path/to/chromium-like  PROFILE=name  HEADLESS=1  WINDOW=1400,1000  VIEWPORT=1400x1000|none
 set -euo pipefail
 INSTANCE="${1:-default}"
 . "$(dirname "$0")/lib.sh"
-PROFILE_SET="${PROFILE_DIR:+1}"
-PROFILE_DIR="$(realpath -m -- "${PROFILE_DIR:-$TMP_PROFILE}")"
-# Never drive the user's everyday browser profile (logged-in sessions, saved passwords).
-H="$(realpath -m -- "$HOME")"
-case "$PROFILE_DIR/" in
-  "$H"/.config/BraveSoftware/*|"$H"/.config/google-chrome*/*|"$H"/.config/chromium/*|"$H"/.config/microsoft-edge*/*|\
-  "$H"/.config/vivaldi*/*|"$H"/.config/opera*/*|"$H"/snap/brave/*|"$H"/snap/chromium/*|"$H"/.var/app/*)
-    echo "refusing to use a real browser profile: $PROFILE_DIR" >&2; exit 1;;
-esac
+# Persistent profiles are only ever named directories under a root this skill owns, so no caller-supplied
+# path can point the browser at the user's everyday profile (or at any other existing directory).
+PROFILE_ROOT=
+if [ -n "${PROFILE:-}" ]; then
+  [[ "$PROFILE" =~ ^[A-Za-z0-9_-]{1,32}$ ]] || { echo "invalid profile name: $PROFILE" >&2; exit 1; }
+  HOME_DIR="$(getent passwd "$(id -u)" | cut -d: -f6)"  # not $HOME, which the caller controls
+  PROFILE_ROOT="$HOME_DIR/.local/share/brave-cdp/profiles"
+  PROFILE_DIR="$PROFILE_ROOT/$PROFILE"
+else
+  PROFILE_DIR="$TMP_PROFILE"
+fi
 
 # Report the profile the running instance actually uses, which may differ from this call's env.
 if PING="$(client --ping 2>/dev/null)"; then
   RUNNING="${PING#*$'\t'}"
-  if [ -z "$PROFILE_SET" ] || [ "$RUNNING" = "$PROFILE_DIR" ]; then
+  if [ -z "${PROFILE:-}" ] || [ "$RUNNING" = "$PROFILE_DIR" ]; then
     echo "already running: $INSTANCE (profile: $RUNNING)"; exit 0
   fi
   echo "instance $INSTANCE already runs with profile $RUNNING, not $PROFILE_DIR; run stop.sh $INSTANCE first or pick another instance name" >&2; exit 1
@@ -39,8 +41,13 @@ if [ -z "$BIN" ]; then  # fall back to Playwright's bundled Chromium
 fi
 [ -n "$BIN" ] || { echo "no (non-snap) Chromium-based browser found; set BROWSER_BIN or run: npx playwright-core install chromium" >&2; exit 1; }
 
+# Every directory we hand to the browser must be a real directory owned by us and closed to others.
 mkdir -p "$PROFILE_DIR"
-[ -O "$PROFILE_DIR" ] || { echo "profile $PROFILE_DIR is not owned by you" >&2; exit 1; }
+for d in $PROFILE_ROOT "$PROFILE_DIR"; do
+  if [ -L "$d" ] || [ ! -O "$d" ] || (( 8#$(stat -c %a "$d") & 8#077 )); then
+    echo "unsafe profile dir $d: must be a non-symlink directory owned by you with mode 0700" >&2; exit 1
+  fi
+done
 # The broker keeps the browser on a pipe and serves run.mjs on $SOCK; it exits when the browser does.
 nohup setsid node "$BIN_DIR/server.mjs" "$INSTANCE" "$PROFILE_DIR" "$BIN" >"$LOG" 2>&1 &
 

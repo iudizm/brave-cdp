@@ -37,8 +37,9 @@ $B/stop.sh --clean
 - Nenhuma porta CDP é aberta: um broker (`server.mjs`) segura o navegador via pipe e atende o `run.mjs` num socket Unix
   dentro de `/tmp/claude-brave-<uid>/` (modo 0700), então outros usuários locais não conseguem controlar o navegador.
   O sandbox do Chromium continua ligado (o Playwright o desligaria por padrão).
-- Com `PROFILE_DIR` persistente e sessões logadas, uma página maliciosa (prompt injection) pode induzir o agente a agir
-  como você nesses sites. Use perfil persistente só quando precisar; o `start.sh` recusa os perfis reais dos navegadores.
+- Com perfil persistente (`PROFILE=nome`) e sessões logadas, uma página maliciosa (prompt injection) pode induzir o
+  agente a agir como você nesses sites. Use só quando precisar. Perfis persistentes só podem ficar em
+  `~/.local/share/brave-cdp/profiles/`, então o navegador nunca pode ser apontado para o perfil do seu navegador do dia a dia.
 - Perfis temporários, logs e screenshots ficam em `/tmp/claude-brave-<uid>/` (modo 0700); `stop.sh --clean` os remove.
 
 ## Licença
