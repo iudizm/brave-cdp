@@ -17,7 +17,7 @@ Se preferir clonar em outro lugar, crie um symlink: `ln -s "$PWD" ~/.claude/skil
 O `SKILL.md` chama os scripts por `~/.claude/skills/brave-cdp/bin`, então a skill precisa estar acessível nesse caminho.
 
 Requer **Linux**, Node 20+ e Brave (ou Chromium / Chromium do Playwright como fallback).
-Os scripts usam `setsid` e `flock` (util-linux) e `realpath` (coreutils).
+Os scripts usam `setsid` e `flock` (util-linux) e `realpath` (coreutils); gravar demos em GIF/MP4/WebM requer `ffmpeg`.
 Navegadores instalados via **snap** não funcionam (têm `/tmp` privado) e são ignorados; use o pacote
 .deb/.rpm do Brave ou o Chromium do Playwright (`npx playwright-core install chromium` na pasta da skill).
 

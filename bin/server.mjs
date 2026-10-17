@@ -16,7 +16,7 @@ import { makeHelpers } from './helpers.mjs';
 process.umask(0o077);
 const [inst, profile, bin] = process.argv.slice(2);
 if (!validInstance(inst) || !profile || !bin || !runDirOk()) { console.error('bad arguments or unsafe run dir'); process.exit(2); }
-const { sock, shot } = paths(inst);
+const { sock, shot, recTmp } = paths(inst);
 
 // A live socket means this instance already runs; a dead one is left over from a crash.
 if (fs.existsSync(sock)) {
@@ -77,7 +77,7 @@ async function run({ tab, code, env, cwd }) {
     const logs = [];
     const say = (...a) => logs.push(a.map(show).join(' '));
     const con = { log: say, info: say, warn: say, error: say, debug: say };
-    const helpers = makeHelpers(page, { shotPath: shot(tab), cwd });
+    const helpers = makeHelpers(page, { shotPath: shot(tab), cwd, tmpPrefix: recTmp });
     try {
       const fn = new AsyncFn('page', 'ctx', 'browser', 'env', 'console', ...Object.keys(helpers), code);
       const r = await fn(page, ctx, ctx.browser(), env, con, ...Object.values(helpers));

@@ -6,6 +6,7 @@ export const validInstance = (s) => typeof s === 'string' && /^[A-Za-z0-9_-]{1,3
 export const paths = (inst) => ({
   sock: `${RUN_DIR}/${inst}.sock`,
   shot: (tab) => `${RUN_DIR}/${inst}-${tab.replace(/[^\w.-]/g, '_')}.png`,
+  recTmp: `${RUN_DIR}/${inst}-rec-`, // + random suffix, see helpers.mjs recStart
 });
 
 /** The run dir (created by start.sh) must be a real directory owned by us and closed to group/others. */

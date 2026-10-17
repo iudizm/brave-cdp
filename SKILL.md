@@ -52,6 +52,19 @@ paths for files (`shot()` resolves relative paths against the caller's directory
 - `grepScripts(needle)`: searches the page's JS bundles. Useful to discover deep-link or query parameter names (e.g. build a results URL directly instead of filling a form). Scripts on local/private hosts are skipped unless the page itself is local.
 - `sleep(ms)`.
 
+## Recording demos (GIF / MP4 / WebM)
+
+- `record(path, async () => {...}, {actions=true})`: records the action and saves it; the format comes from the extension.
+- `recStart({actions=true})` … `recStop(path?, {fps, width, maxIdle=2})`: same, but spanning several `run.mjs` calls
+  (the recording lives in the broker). Each still frame lasts at most `maxIdle` seconds, so your thinking time between
+  calls doesn't show up as frozen video. Default path: `/tmp/claude-brave-<uid>/<instance>-<tab>.mp4`.
+- `actions` draws an animated cursor and highlights what is clicked or filled. For narration use
+  `page.screencast.showChapter(title, {description, duration})` (centered title over a blurred page) or
+  `page.screencast.showOverlay(html, {duration})`.
+- GIFs default to 12 fps and 900 px wide (good for READMEs); MP4/WebM keep 30 fps and full width. Needs `ffmpeg`.
+- Script the whole demo in one file once the flow works, then record it in one go: it looks smoother than a recording
+  driven step by step.
+
 Plus everything in Playwright: `page.locator`, `getByRole`, `fill`, `selectOption`, `waitForSelector`, `$$eval`, `evaluate`, `page.request`, etc.
 
 ## Working method (fast and token-cheap)

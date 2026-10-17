@@ -1,5 +1,20 @@
 // Helpers available in every snippet (see SKILL.md). Bound to one page per run.
+import { execFile } from 'child_process';
+import fs from 'fs';
 import path from 'path';
+import { promisify } from 'util';
+
+// Recordings outlive a single run (the broker keeps the page), so their state lives at module level.
+const recordings = new WeakMap(); // page -> { dir, frames: [[file, ms]], actions, t0 }
+
+/** ffmpeg arguments per output format; frames come from a concat list with per-frame durations. */
+const ENCODE = {
+  '.mp4': (fps, w) => ['-vf', `fps=${fps || 30},scale='min(${w || 1400},iw)':-2:flags=lanczos,format=yuv420p`,
+    '-c:v', 'libx264', '-crf', '23', '-preset', 'veryfast', '-movflags', '+faststart'],
+  '.webm': (fps, w) => ['-vf', `fps=${fps || 30},scale='min(${w || 1400},iw)':-2:flags=lanczos`, '-c:v', 'libvpx-vp9', '-crf', '34', '-b:v', '0'],
+  '.gif': (fps, w) => ['-vf', `fps=${fps || 12},scale='min(${w || 900},iw)':-1:flags=lanczos,split[a][b];`
+    + '[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle'],
+};
 
 /** Loopback, private, link-local (incl. cloud metadata) or unspecified addresses, by literal host name. */
 export function isPrivateHost(host) {
@@ -11,8 +26,11 @@ export function isPrivateHost(host) {
   return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
 }
 
-/** @param page Playwright page; shotPath default screenshot file; cwd caller's directory (relative paths). */
-export function makeHelpers(page, { shotPath, cwd }) {
+/**
+ * @param page Playwright page; shotPath default screenshot file (videos default to the same name, .mp4);
+ * cwd caller's directory (relative paths); tmpPrefix prefix for temporary recording dirs.
+ */
+export function makeHelpers(page, { shotPath, cwd, tmpPrefix }) {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const squash = (s) => s.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
 
@@ -147,5 +165,68 @@ export function makeHelpers(page, { shotPath, cwd }) {
     return hits.join('\n---\n');
   }
 
-  return { sleep, goto, text, shot, styles, clickables, click, waitText, capture, netlog, grepScripts };
+  /**
+   * Start recording this tab (frames are only captured when the page repaints). With `actions`, clicks and
+   * fills show an animated cursor and a highlight. Recording survives across run.mjs calls until recStop().
+   */
+  async function recStart({ actions = true, maxSeconds = 300, quality = 80 } = {}) {
+    if (recordings.has(page)) throw new Error('already recording this tab; call recStop(path) first');
+    await page.screencast.stop().catch(() => {}); // a screencast left over from a failed run
+    const rec = { dir: fs.mkdtempSync(tmpPrefix), frames: [], t0: Date.now() };
+    await page.screencast.start({
+      size: page.viewportSize() || { width: 1400, height: 1000 }, quality,
+      onFrame: ({ data, timestamp }) => {
+        if (timestamp - rec.t0 > maxSeconds * 1000) return;
+        const f = `${rec.dir}/${String(rec.frames.length).padStart(6, '0')}.jpg`;
+        fs.writeFileSync(f, data);
+        rec.frames.push([f, timestamp]);
+      },
+    });
+    if (actions) rec.actions = await page.screencast.showActions();
+    recordings.set(page, rec);
+    return 'recording';
+  }
+  /**
+   * Stop recording and encode by extension: .mp4 (default), .gif or .webm. Needs ffmpeg. A still frame lasts at
+   * most `maxIdle` seconds, so the time spent between run.mjs calls doesn't turn into long frozen stretches.
+   */
+  async function recStop(file = shotPath.replace(/\.png$/, '.mp4'), { fps, width, maxIdle = 2 } = {}) {
+    const rec = recordings.get(page);
+    if (!rec) throw new Error('not recording this tab; call recStart() first');
+    recordings.delete(page);
+    const end = Date.now();
+    try {
+      await page.screencast.stop();
+      await rec.actions?.dispose().catch(() => {});
+      const out = path.resolve(cwd, file), ext = path.extname(out).toLowerCase();
+      if (!ENCODE[ext]) throw new Error(`unsupported format ${ext}; use .mp4, .gif or .webm`);
+      if (!rec.frames.length) throw new Error('no frames captured');
+      // Each frame lasts until the next one; the last one until recStop (concat needs it listed twice).
+      const { frames } = rec, list = `${rec.dir}/list.txt`;
+      const dur = (i) => Math.min(maxIdle, ((i + 1 < frames.length ? frames[i + 1][1] : end) - frames[i][1]) / 1000);
+      fs.writeFileSync(list, frames.map(([f], i) => `file '${f}'\nduration ${Math.max(dur(i), 0.001).toFixed(3)}`).join('\n')
+        + `\nfile '${frames.at(-1)[0]}'\n`);
+      await promisify(execFile)('ffmpeg', ['-y', '-v', 'error', '-f', 'concat', '-safe', '0', '-i', list, ...ENCODE[ext](fps, width), out])
+        .catch((e) => { throw new Error(e.code === 'ENOENT' ? 'recording needs ffmpeg (e.g. apt install ffmpeg)' : e.stderr || e.message); });
+      const total = frames.reduce((s, _, i) => s + Math.max(dur(i), 0.001), 0);
+      return `${out} (${total.toFixed(1)}s, ${Math.round(fs.statSync(out).size / 1024)} kB)`;
+    } finally {
+      fs.rmSync(rec.dir, { recursive: true, force: true });
+    }
+  }
+  /** Record `action` into `file` (format by extension). On error the recording is discarded. */
+  async function record(file, action, opts = {}) {
+    await recStart(opts);
+    try { await action(); } catch (e) {
+      const rec = recordings.get(page);
+      recordings.delete(page);
+      await page.screencast.stop().catch(() => {});
+      await rec?.actions?.dispose().catch(() => {});
+      if (rec) fs.rmSync(rec.dir, { recursive: true, force: true });
+      throw e;
+    }
+    return recStop(file, opts);
+  }
+
+  return { sleep, goto, text, shot, styles, clickables, click, waitText, capture, netlog, grepScripts, recStart, recStop, record };
 }
