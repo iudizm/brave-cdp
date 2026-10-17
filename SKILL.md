@@ -11,7 +11,7 @@ private Unix socket. The browser stays open between calls, so state, cookies and
 and each step costs one small Bash call. Brave Shields blocks most trackers, so pages load faster
 and the text output is cleaner.
 
-Scripts live in `~/.claude/skills/brave-cdp/scripts/` (`playwright-core` is installed next to them):
+Scripts live in `${CLAUDE_SKILL_DIR}/scripts/` (`playwright-core` is installed next to them):
 
 | Script | What it does |
 |---|---|
@@ -21,7 +21,7 @@ Scripts live in `~/.claude/skills/brave-cdp/scripts/` (`playwright-core` is inst
 | `stop.sh [instance] [--clean]` | Closes that browser instance. `--clean` also deletes the temp profile, log and screenshots. |
 
 ```bash
-B=~/.claude/skills/brave-cdp/scripts
+B=${CLAUDE_SKILL_DIR}/scripts
 $B/start.sh
 node $B/run.mjs -e 'await goto("https://example.com"); return text({max: 1500})'
 node $B/run.mjs -e 'return clickables("search|buscar")'
