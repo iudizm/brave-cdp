@@ -5,8 +5,9 @@ description: Drive a real, isolated Brave browser (separate temporary profile, C
 
 # brave-cdp: isolated browser via CDP
 
-A separate Brave instance (own temp profile, own CDP port) controlled with short Playwright
-snippets. The browser stays open between calls, so state, cookies and the current page carry over,
+A separate Brave instance (own temp profile) controlled with short Playwright snippets. A small
+broker holds the browser over a CDP pipe (no debugging port) and `run.mjs` talks to it through a
+private Unix socket. The browser stays open between calls, so state, cookies and the current page carry over,
 and each step costs one small Bash call. Brave Shields blocks most trackers, so pages load faster
 and the text output is cleaner.
 
@@ -14,10 +15,10 @@ Scripts live in `~/.claude/skills/brave-cdp/bin/` (`playwright-core` is installe
 
 | Script | What it does |
 |---|---|
-| `start.sh [port]` | Starts Brave on CDP port (default `9333`) with a temporary profile in `/tmp/claude-brave-<uid>/` (private, mode 0700). Idempotent. Falls back to Chromium or Playwright's Chromium. Env: `HEADLESS=1`, `PROFILE_DIR=…` (persistent profile, e.g. to keep a login the user did by hand; real browser profiles are refused), `BROWSER_BIN=…`, `WINDOW=1400,1000`. |
-| `run.mjs [--tab NAME] <file.js \| -e 'code' \| ->` | Runs a snippet as an async function body against tab `NAME` (default `main`; created on first use and remembered). The return value is printed. |
+| `start.sh [instance]` | Starts instance `instance` (default `default`) with a temporary profile in `/tmp/claude-brave-<uid>/` (private, mode 0700). Idempotent. Falls back to Chromium or Playwright's Chromium. Env: `HEADLESS=1`, `PROFILE_DIR=…` (persistent profile, e.g. to keep a login the user did by hand; real browser profiles are refused), `BROWSER_BIN=…`, `WINDOW=1400,1000`, `VIEWPORT=1400x1000` (or `none`). |
+| `run.mjs [--instance NAME] [--tab NAME] <file.js \| -e 'code' \| ->` | Runs a snippet as an async function body against tab `NAME` (default `main`; created on first use and remembered). The return value is printed. Calls on the same tab run one at a time. |
 | `run.mjs --list` / `--close NAME` | Lists or closes tabs. |
-| `stop.sh [port] [--clean]` | Kills that browser instance. `--clean` also deletes the temp profile, log and screenshots. |
+| `stop.sh [instance] [--clean]` | Closes that browser instance. `--clean` also deletes the temp profile, log and screenshots. |
 
 ```bash
 B=~/.claude/skills/brave-cdp/bin
@@ -34,7 +35,9 @@ Loop over inputs in Bash and save each result to a file, then summarize. That ke
 
 ## Available in the snippet scope
 
-`page`, `ctx`, `browser`, `env` (process.env) plus these helpers:
+`page`, `ctx`, `browser`, `env` (the environment of the `run.mjs` call), `console` (its output is printed
+before the return value) plus these helpers. The snippet runs inside the broker process, so use absolute
+paths for files (`shot()` resolves relative paths against the caller's directory).
 
 - `goto(url, {wait=3000})`: navigate, then wait for client-side rendering.
 - `text({selector='body', max=4000, from, to, oneLine})`: visible text, squashed. Use `from`/`to` markers to slice only the relevant region. **Prefer this over screenshots.**
@@ -60,7 +63,7 @@ Plus everything in Playwright: `page.locator`, `getByRole`, `fill`, `selectOptio
 
 ## Gotchas learned in practice
 
-- **Mobile layout switch:** if the browser window shrinks, responsive sites switch to a mobile layout and selectors break. `run.mjs` pins a 1400x1000 viewport on every call (`VIEWPORT=1280x800` to change, `VIEWPORT=none` to disable).
+- **Mobile layout switch:** if the browser window shrinks, responsive sites switch to a mobile layout and selectors break. The browser keeps a fixed 1400x1000 viewport (`VIEWPORT=1280x800 start.sh` to change, `VIEWPORT=none` to disable).
 - **Skeleton loaders:** a block that stays gray (`animate-pulse`) usually means "still loading". Wait longer or poll for content before deciding something is broken.
 - **Strict-mode errors:** `getByText` matching several elements throws. Use `click()` (first visible match) or `.locator('visible=true').first()`.
 - **Interstitials:** modals and upsells ("join our club", cookie banners, "are you sure?") often appear after clicking Continue. After each step check `text()`/`clickables()` for a dismiss button.

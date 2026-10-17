@@ -17,7 +17,7 @@ Se preferir clonar em outro lugar, crie um symlink: `ln -s "$PWD" ~/.claude/skil
 O `SKILL.md` chama os scripts por `~/.claude/skills/brave-cdp/bin`, então a skill precisa estar acessível nesse caminho.
 
 Requer **Linux**, Node 20+ e Brave (ou Chromium / Chromium do Playwright como fallback).
-Os scripts usam `/proc`, `setsid` (util-linux), `ss` (iproute2) e `realpath` (coreutils).
+Os scripts usam `setsid` (util-linux) e `realpath` (coreutils).
 Navegadores instalados via **snap** não funcionam (têm `/tmp` privado) e são ignorados; use o pacote
 .deb/.rpm do Brave ou o Chromium do Playwright (`npx playwright-core install chromium` na pasta da skill).
 
@@ -34,8 +34,9 @@ $B/stop.sh --clean
 
 - `run.mjs` executa JavaScript arbitrário em Node com as permissões do seu usuário (é o propósito da skill).
   Liberar `node …/run.mjs` no allowlist de permissões do Claude Code equivale a liberar execução arbitrária de código.
-- A CDP escuta só em localhost, mas qualquer processo do seu usuário pode controlar o navegador enquanto ele estiver aberto.
-  `start.sh` e `run.mjs` só aceitam um endpoint cujo processo seja comprovadamente o navegador que o `start.sh` lançou.
+- Nenhuma porta CDP é aberta: um broker (`server.mjs`) segura o navegador via pipe e atende o `run.mjs` num socket Unix
+  dentro de `/tmp/claude-brave-<uid>/` (modo 0700), então outros usuários locais não conseguem controlar o navegador.
+  O sandbox do Chromium continua ligado (o Playwright o desligaria por padrão).
 - Com `PROFILE_DIR` persistente e sessões logadas, uma página maliciosa (prompt injection) pode induzir o agente a agir
   como você nesses sites. Use perfil persistente só quando precisar; o `start.sh` recusa os perfis reais dos navegadores.
 - Perfis temporários, logs e screenshots ficam em `/tmp/claude-brave-<uid>/` (modo 0700); `stop.sh --clean` os remove.

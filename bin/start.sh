@@ -1,13 +1,12 @@
 #!/usr/bin/env bash
-# Start an isolated browser (Brave preferred) with a CDP endpoint.
-# usage: start.sh [port]
-# env:   BROWSER_BIN=/path/to/chromium-like  PROFILE_DIR=dir  HEADLESS=1  WINDOW=1400,1000
+# Start an isolated browser (Brave preferred), driven by server.mjs over a CDP pipe (no TCP port).
+# usage: start.sh [instance]   (default: "default")
+# env:   BROWSER_BIN=/path/to/chromium-like  PROFILE_DIR=dir  HEADLESS=1  WINDOW=1400,1000  VIEWPORT=1400x1000|none
 set -euo pipefail
-PORT="${1:-${CDP_PORT:-9333}}"
+INSTANCE="${1:-default}"
 . "$(dirname "$0")/lib.sh"
 PROFILE_SET="${PROFILE_DIR:+1}"
 PROFILE_DIR="$(realpath -m -- "${PROFILE_DIR:-$TMP_PROFILE}")"
-WINDOW="${WINDOW:-1400,1000}"
 # Never drive the user's everyday browser profile (logged-in sessions, saved passwords).
 H="$(realpath -m -- "$HOME")"
 case "$PROFILE_DIR/" in
@@ -17,16 +16,12 @@ case "$PROFILE_DIR/" in
 esac
 
 # Report the profile the running instance actually uses, which may differ from this call's env.
-if read_state; then
-  if [ -z "$PROFILE_SET" ] || [ "$S_PROFILE" = "$PROFILE_DIR" ]; then
-    echo "already running on :$PORT (profile: $S_PROFILE)"; exit 0
+if PING="$(client --ping 2>/dev/null)"; then
+  RUNNING="${PING#*$'\t'}"
+  if [ -z "$PROFILE_SET" ] || [ "$RUNNING" = "$PROFILE_DIR" ]; then
+    echo "already running: $INSTANCE (profile: $RUNNING)"; exit 0
   fi
-  echo "already running on :$PORT with profile $S_PROFILE, not $PROFILE_DIR; run stop.sh $PORT first or pick another port" >&2; exit 1
-fi
-# Anything answering on the port is not proof it is our browser (it could be the user's own browser,
-# or another local user's process), so refuse to share the port instead of attaching to it.
-if ss -ltnH "sport = :$PORT" | grep -q .; then
-  echo "port $PORT is in use by another process (not a browser started by this skill); pick another port" >&2; exit 1
+  echo "instance $INSTANCE already runs with profile $RUNNING, not $PROFILE_DIR; run stop.sh $INSTANCE first or pick another instance name" >&2; exit 1
 fi
 
 # Snap browsers get a private /tmp, so we could neither see nor clean their profile.
@@ -46,23 +41,14 @@ fi
 
 mkdir -p "$PROFILE_DIR"
 [ -O "$PROFILE_DIR" ] || { echo "profile $PROFILE_DIR is not owned by you" >&2; exit 1; }
-ARGS=(--user-data-dir="$PROFILE_DIR" --remote-debugging-port="$PORT" --no-first-run
-      --no-default-browser-check --window-size="$WINDOW" --disable-features=Translate)
-[ "${HEADLESS:-0}" = "1" ] && ARGS+=(--headless=new)
+# The broker keeps the browser on a pipe and serves run.mjs on $SOCK; it exits when the browser does.
+nohup setsid node "$BIN_DIR/server.mjs" "$INSTANCE" "$PROFILE_DIR" "$BIN" >"$LOG" 2>&1 &
 
-nohup setsid "$BIN" "${ARGS[@]}" about:blank >"$LOG" 2>&1 &
-
-# Trust only what our own browser reports: the pid in its profile lock and the endpoint it logged.
-# (If 127.0.0.1:PORT is taken meanwhile, Chromium silently binds [::1] instead, so never assume the address.)
-for _ in $(seq 1 30); do
-  PID="$(lock_pid "$PROFILE_DIR" || true)"
-  WS="$(grep -oE "ws://(127\.0\.0\.1|\[::1\]):$PORT/devtools/browser/[0-9a-f-]+" "$LOG" 2>/dev/null | tail -1 || true)"
-  if [ -n "$WS" ] && is_ours "$PID" "$PROFILE_DIR"; then
-    printf '%s\n' "$PROFILE_DIR" "$PID" "$WS" >"$STATE"
-    echo "started $(basename "$BIN") on :$PORT (profile: $PROFILE_DIR)"; exit 0
+for _ in $(seq 1 60); do
+  if client --ping >/dev/null 2>&1; then
+    echo "started $(basename "$BIN"): $INSTANCE (profile: $PROFILE_DIR)"; exit 0
   fi
+  grep -q '^FAILED' "$LOG" 2>/dev/null && break
   sleep 0.5
 done
-PID="$(lock_pid "$PROFILE_DIR" || true)"
-if is_ours "$PID" "$PROFILE_DIR"; then kill "$PID"; fi
-echo "browser did not expose CDP on :$PORT; see $LOG" >&2; exit 1
+echo "browser did not start; see $LOG" >&2; exit 1
