@@ -49,7 +49,7 @@ for d in $PROFILE_ROOT "$PROFILE_DIR"; do
   fi
 done
 # The broker keeps the browser on a pipe and serves run.mjs on $SOCK; it exits when the browser does.
-nohup setsid node "$BIN_DIR/server.mjs" "$INSTANCE" "$PROFILE_DIR" "$BIN" >"$LOG" 2>&1 &
+nohup setsid node "$BIN_DIR/server.mjs" "$INSTANCE" "$PROFILE_DIR" "$BIN" 9>&- >"$LOG" 2>&1 &  # not holding the lock
 
 for _ in $(seq 1 60); do
   if client --ping >/dev/null 2>&1; then

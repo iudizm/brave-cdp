@@ -17,7 +17,7 @@ To clone it somewhere else, symlink it instead: `ln -s "$PWD" ~/.claude/skills/b
 `SKILL.md` calls the scripts through `~/.claude/skills/brave-cdp/bin`, so the skill must be reachable at that path.
 
 Requires **Linux**, Node 20+ and Brave (or Chromium / Playwright's Chromium as a fallback).
-The scripts use `setsid` (util-linux) and `realpath` (coreutils).
+The scripts use `setsid` and `flock` (util-linux) and `realpath` (coreutils).
 Browsers installed via **snap** don't work (they get a private `/tmp`) and are skipped; use Brave's
 .deb/.rpm package or Playwright's Chromium (`npx playwright-core install chromium` in the skill folder).
 

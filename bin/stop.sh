@@ -7,4 +7,4 @@ for a in "$@"; do case "$a" in --clean) CLEAN=1;; *) INSTANCE="$a";; esac; done
 # The broker closes the browser (flushing the profile) before it replies, so cleaning up afterwards is safe.
 if client --stop >/dev/null 2>&1; then echo "stopped $INSTANCE"; else echo "nothing running for $INSTANCE"; fi
 # Only ever delete the temporary profile; a PROFILE_DIR chosen by the user is never touched.
-if [ "$CLEAN" = 1 ]; then rm -rf "$TMP_PROFILE" "$LOG" "$RUN_DIR/$INSTANCE"-*.png; echo "removed $TMP_PROFILE"; fi
+if [ "$CLEAN" = 1 ]; then rm -rf "$TMP_PROFILE" "$LOG" "$RUN_DIR/$INSTANCE"-*.png "$RUN_DIR/$INSTANCE.lock"; echo "removed $TMP_PROFILE"; fi
