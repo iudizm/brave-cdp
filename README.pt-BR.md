@@ -7,24 +7,25 @@ Skill do Claude Code para controlar um **Brave isolado** (perfil temporário pr�
 ![Demo do brave-cdp: busca na Wikipedia e extração de texto](docs/demo.gif)
 
 A demo foi deixada lenta de propósito (digitação, pausas e sobreposições) para cada passo ficar visível. As chamadas
-reais levam milissegundos; cada uma é uma chamada `node run.mjs` a um broker que mantém o navegador aberto:
+reais levam de dezenas a poucas centenas de milissegundos; cada uma é uma chamada `node run.mjs` a um broker que mantém o navegador aberto:
 
 | Ação | Mediana | Melhor |
 |---|---|---|
-| `start.sh` (abrir o navegador do zero) | 1,14 s | 1,12 s |
-| Chamada vazia (ida e volta do `run.mjs`) | 27 ms | 21 ms |
-| `goto` página local | 49 ms | 42 ms |
-| `goto` página real (artigo da Wikipedia) | 167 ms | 149 ms |
-| `text()` (4000 caracteres desse artigo) | 31 ms | 27 ms |
+| `start.sh` (abrir o navegador do zero) | 1,13 s | 1,13 s |
+| Chamada vazia (ida e volta do `run.mjs`) | 22 ms | 20 ms |
+| `goto` página local | 361 ms | 353 ms |
+| `goto` página real (artigo da Wikipedia) | 675 ms | 656 ms |
+| `goto` mesma página, `wait: 0` (sem esperar estabilizar) | 128 ms | 123 ms |
+| `text()` (4000 caracteres desse artigo) | 35 ms | 27 ms |
 | `styles()` | 53 ms | 47 ms |
-| `clickables()` | 48 ms | 39 ms |
-| `click` num botão | 61 ms | 47 ms |
-| `shot()` da área visível | 91 ms | 80 ms |
-| `shot({ selector })` de um elemento | 71 ms | 65 ms |
+| `clickables()` | 47 ms | 39 ms |
+| `click` num botão | 363 ms | 354 ms |
+| `shot()` da área visível | 85 ms | 81 ms |
+| `shot({ selector })` de um elemento | 73 ms | 67 ms |
 
-Brave 1.95 headless num Intel Core Ultra 5 125U, 10 execuções por ação, `goto` e `click` com `wait: 0`. Por padrão o
-`goto` espera mais 3 s e o `click` mais 1,5 s para apps renderizados no cliente terminarem. Rode `node test/bench.mjs`
-para medir na sua máquina.
+Brave 1.95 headless num Intel Core Ultra 5 125U, 10 execuções por ação. `goto` e `click` incluem a espera até a página
+estabilizar (carregada, rede e DOM parados por 300 ms): apps renderizados no cliente têm tempo de terminar e páginas
+estáticas voltam rápido. Rode `node test/bench.mjs` para medir na sua máquina.
 
 Instruções de uso para o agente: [`SKILL.md`](SKILL.md).
 

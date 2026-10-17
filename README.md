@@ -6,25 +6,26 @@ A Claude Code skill that drives an **isolated Brave browser** (its own temporary
 
 ![brave-cdp demo: searching Wikipedia and extracting text](docs/demo.gif)
 
-The demo is slowed down on purpose (typed input, pauses and overlays) so each step is visible. The actual calls take
-milliseconds; each one is a `node run.mjs` call to a broker that keeps the browser warm:
+The demo is slowed down on purpose (typed input, pauses and overlays) so each step is visible. Real calls take tens to a
+few hundred milliseconds; each one is a `node run.mjs` call to a broker that keeps the browser warm:
 
 | Action | Median | Best |
 |---|---|---|
-| `start.sh` (cold browser launch) | 1.14 s | 1.12 s |
-| Empty call (`run.mjs` round trip) | 27 ms | 21 ms |
-| `goto` local page | 49 ms | 42 ms |
-| `goto` real page (Wikipedia article) | 167 ms | 149 ms |
-| `text()` (4000 chars of that article) | 31 ms | 27 ms |
+| `start.sh` (cold browser launch) | 1.13 s | 1.13 s |
+| Empty call (`run.mjs` round trip) | 22 ms | 20 ms |
+| `goto` local page | 361 ms | 353 ms |
+| `goto` real page (Wikipedia article) | 675 ms | 656 ms |
+| `goto` same page, `wait: 0` (no settling) | 128 ms | 123 ms |
+| `text()` (4000 chars of that article) | 35 ms | 27 ms |
 | `styles()` | 53 ms | 47 ms |
-| `clickables()` | 48 ms | 39 ms |
-| `click` a button | 61 ms | 47 ms |
-| `shot()` viewport | 91 ms | 80 ms |
-| `shot({ selector })` one element | 71 ms | 65 ms |
+| `clickables()` | 47 ms | 39 ms |
+| `click` a button | 363 ms | 354 ms |
+| `shot()` viewport | 85 ms | 81 ms |
+| `shot({ selector })` one element | 73 ms | 67 ms |
 
-Headless Brave 1.95 on an Intel Core Ultra 5 125U, 10 runs per action, `goto` and `click` with `wait: 0`. By default
-`goto` waits 3 s more and `click` 1.5 s more so client-side apps can render. Run `node test/bench.mjs` to measure on
-your machine.
+Headless Brave 1.95 on an Intel Core Ultra 5 125U, 10 runs per action. `goto` and `click` include waiting for the
+page to settle (loaded, network and DOM quiet for 300 ms), so client-side apps get time to render while static pages
+return quickly. Run `node test/bench.mjs` to measure on your machine.
 
 Instructions for the agent: [`SKILL.md`](SKILL.md).
 

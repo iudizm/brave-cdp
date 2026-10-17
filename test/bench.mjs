@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 // Wall-clock time of common actions, measured the way the agent pays for them: one `node run.mjs` call each.
 // usage: node test/bench.mjs [runs=10]   (prints a markdown table; the "real page" rows need network)
+// goto and click include settling (see settle in helpers.mjs), as the agent gets them by default.
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import http from 'node:http';
@@ -40,15 +41,16 @@ try {
   rows.push(['`start.sh` (cold browser launch)', fmt(median(start)), fmt(Math.min(...start))]);
 
   await bench('Empty call (`run.mjs` round trip)', 'return 1');
-  await bench('`goto` local page, `wait: 0`', `await goto('${LOCAL}', { wait: 0 })`);
-  await bench('`goto` real page (Wikipedia), `wait: 0`', `await goto('${REAL}', { wait: 0 })`, { runs: Math.min(RUNS, 5) });
+  await bench('`goto` local page', `await goto('${LOCAL}')`);
+  await bench('`goto` real page (Wikipedia article)', `await goto('${REAL}')`, { runs: Math.min(RUNS, 5) });
+  await bench('`goto` same page, `wait: 0` (no settling)', `await goto('${REAL}', { wait: 0 })`, { runs: Math.min(RUNS, 5) });
   await bench('`text()` (Wikipedia article, 4000 chars)', 'return text()');
   await bench('`styles()`', 'return styles()');
   await bench('`shot()` viewport', 'return shot()');
   await bench('`shot({ selector })` one element', `return shot(undefined, { selector: '.infobox' })`);
   await bench('`clickables()`', 'return clickables()');
   await run(`await goto('${LOCAL}', { wait: 0 })`);
-  await bench('`click` local button, `wait: 0`', `await click('Press me', { wait: 0 })`, { before: 'await page.reload()' });
+  await bench('`click` a button', `await click('Press me')`, { before: 'await page.reload()' });
 } finally {
   await sh(`${BIN}stop.sh`, [INSTANCE, '--clean']);
   srv.close();
