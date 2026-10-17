@@ -25,7 +25,7 @@ B=~/.claude/skills/brave-cdp/bin
 $B/start.sh
 node $B/run.mjs -e 'await goto("https://example.com"); return text({max: 1500})'
 node $B/run.mjs -e 'return clickables("search|buscar")'
-node $B/run.mjs -e 'await page.fill("input[name=q]", "foo"); await page.keyboard.press("Enter"); await sleep(3000); return text({from: "Results", max: 3000})'
+node $B/run.mjs -e 'await page.fill("input[name=q]", "foo"); await settle(() => page.keyboard.press("Enter")); return text({from: "Results", max: 3000})'
 $B/stop.sh --clean        # when done
 ```
 
@@ -40,15 +40,16 @@ Loop over inputs in Bash and save each result to a file, then summarize. That ke
 before the return value) plus these helpers. The snippet runs inside the broker process, so use absolute
 paths for files (`shot()` resolves relative paths against the caller's directory).
 
-- `goto(url, {wait=3000})`: navigate, then wait for client-side rendering.
+- `goto(url, {wait=4000})`: navigate, then `settle` (see below) for at most `wait` ms. `wait: 0` returns right after DOMContentLoaded.
 - `text({selector='body', max=4000, from, to, oneLine})`: visible text, squashed. Use `from`/`to` markers to slice only the relevant region. **Prefer this over screenshots.**
 - `shot(path?, {full, selector})`: saves a screenshot and returns the path. Look at it with the Read tool when the layout is unclear (blank areas, modals, skeleton loaders). `selector` captures just that element (logo, header, a button): smaller and sharper than a full page.
 - `styles(selector?, {max=25})`: the page's visual identity as text: palette and fonts by frequency, then the distinct text styles (`tag font size/weight color on background radius`). For comparing branding or design between pages, use this for exact values and `shot({selector})` for what text can't capture.
 - `clickables(regex?)`: visible interactive elements with a selector hint (`[data-test-id=…]`, `#id`, `[name=…]`) and their label. This is the fastest way to find what to click.
-- `click(textOrRegex | 'css=<selector>')`: clicks the first *visible* match. A string matches as literal, case-insensitive text.
-- `waitText(regex, timeout)`: waits until the page text matches.
-- `capture(urlRegex, async () => {...})`: collects (JSON-parsed) responses while running an action. Often the site's own API returns clean structured data. Read it instead of scraping. Bodies are cut at `maxBody` (200k chars), at most `max` (50) responses.
-- `netlog(async () => {...})`: request/response/failure log, for debugging stuck UIs.
+- `click(textOrRegex | 'css=<selector>', {wait=3000})`: clicks the first *visible* match, then settles. A string matches as literal, case-insensitive text.
+- `settle(action?, {wait=4000, quiet=300})`: runs `action` (if given), then waits until the page is loaded with no requests in flight and no DOM content changes for `quiet` ms, at most `wait` ms. Static pages return in a few hundred ms. Wrap actions that trigger loading (`settle(() => page.keyboard.press('Enter'))`) instead of a fixed `sleep`; if a page keeps changing (tickers, polling), use `waitText` for what you need.
+- `waitText(regex, timeout)`: waits until the page text matches. The most reliable wait when you know what should appear.
+- `capture(urlRegex, async () => {...}, {wait=4000})`: collects (JSON-parsed) responses while running an action and letting the page settle. Often the site's own API returns clean structured data. Read it instead of scraping. Bodies are cut at `maxBody` (200k chars), at most `max` (50) responses.
+- `netlog(async () => {...}, {wait=4000})`: request/response/failure log while running an action and letting the page settle, for debugging stuck UIs.
 - `grepScripts(needle)`: searches the page's JS bundles. Useful to discover deep-link or query parameter names (e.g. build a results URL directly instead of filling a form). Scripts on local/private hosts are skipped unless the page itself is local.
 - `sleep(ms)`.
 

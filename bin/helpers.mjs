@@ -34,10 +34,47 @@ export function makeHelpers(page, { shotPath, cwd, tmpPrefix }) {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const squash = (s) => s.replace(/[ \t]+/g, ' ').replace(/\n\s*\n+/g, '\n').trim();
 
-  /** Navigate and give client-side apps time to render. */
-  async function goto(url, { wait = 3000, until = 'domcontentloaded', timeout = 45000 } = {}) {
-    await page.goto(url, { waitUntil: until, timeout });
-    if (wait) await sleep(wait);
+  /**
+   * Run `action` (if given), then wait until the page settles: loaded, no requests in flight and no DOM content
+   * changes for `quiet` ms, giving up after `wait` ms. A static page returns in a few hundred ms instead of a fixed
+   * sleep; a client-side app gets time to fetch and render.
+   */
+  async function settle(action, opts) {
+    if (typeof action !== 'function') [action, opts] = [null, action];
+    const { wait = 4000, quiet = 300 } = opts || {};
+    const pending = new Set();
+    let last = Date.now();
+    // Streams and sockets can stay open forever; they shouldn't keep us waiting.
+    const on = (r) => { if (!/^(media|websocket|eventsource)$/.test(r.resourceType())) { pending.add(r); last = Date.now(); } };
+    const off = (r) => { if (pending.delete(r)) last = Date.now(); };
+    page.on('request', on); page.on('requestfinished', off); page.on('requestfailed', off);
+    try {
+      const result = action ? await action() : undefined;
+      const deadline = Date.now() + wait;
+      let seen;
+      while (Date.now() < deadline) {
+        // Counts content mutations (not attributes, which animations touch constantly); null while navigating.
+        const now = await page.evaluate(() => {
+          if (document.readyState !== 'complete') return null;
+          if (!window.__bcdpMut) {
+            window.__bcdpMut = { n: 0 };
+            new MutationObserver(() => window.__bcdpMut.n++).observe(document, { subtree: true, childList: true, characterData: true });
+          }
+          return window.__bcdpMut.n;
+        }).catch(() => null);
+        if (now === null || now !== seen) { seen = now; last = Date.now(); }
+        else if (!pending.size && Date.now() - last >= quiet) break;
+        await sleep(100);
+      }
+      return result;
+    } finally {
+      page.off('request', on); page.off('requestfinished', off); page.off('requestfailed', off);
+    }
+  }
+
+  /** Navigate, then settle (see `settle`); `wait` caps the wait, 0 returns right after DOMContentLoaded. */
+  async function goto(url, { wait = 4000, until = 'domcontentloaded', timeout = 45000 } = {}) {
+    await settle(() => page.goto(url, { waitUntil: until, timeout }), { wait });
     return page.url();
   }
   /** Visible text of the page (or a selector), squashed. Use from/to markers to slice the relevant part. */
@@ -105,12 +142,11 @@ export function makeHelpers(page, { shotPath, cwd, tmpPrefix }) {
     return [...new Set(items)].filter((x) => !rx || rx.test(x)).slice(0, max).join('\n');
   }
   /** Click the first visible element matching visible text (string/regex) or a CSS selector (prefix 'css='). */
-  async function click(target, { wait = 1500 } = {}) {
+  async function click(target, { wait = 3000 } = {}) {
     const loc = typeof target === 'string' && target.startsWith('css=')
       ? page.locator(target.slice(4))
       : page.getByText(target instanceof RegExp ? target : new RegExp(target.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'));
-    await loc.locator('visible=true').first().click();
-    if (wait) await sleep(wait);
+    await settle(() => loc.locator('visible=true').first().click(), { wait });
   }
   /** Wait until the page text matches a regex. */
   async function waitText(re, timeout = 30000) {
@@ -131,7 +167,7 @@ export function makeHelpers(page, { shotPath, cwd, tmpPrefix }) {
       out.push({ url: r.url(), status: r.status(), body: j ?? b });
     };
     page.on('response', h);
-    try { await action(); await sleep(wait); } finally { page.off('response', h); }
+    try { await settle(action, { wait }); } finally { page.off('response', h); }
     return out;
   }
   /** Log network requests (excluding static assets) and failures while running `action`. */
@@ -140,7 +176,7 @@ export function makeHelpers(page, { shotPath, cwd, tmpPrefix }) {
     const onRes = (r) => { if (all || !/\.(png|jpe?g|gif|svg|webp|woff2?|ttf|css|ico)(\?|$)/i.test(r.url())) log.push(`${r.status()} ${r.request().method()} ${r.url().slice(0, 160)}`); };
     const onFail = (r) => log.push(`FAIL ${r.url().slice(0, 160)} ${r.failure()?.errorText}`);
     page.on('response', onRes); page.on('requestfailed', onFail);
-    try { await action(); await sleep(wait); } finally { page.off('response', onRes); page.off('requestfailed', onFail); }
+    try { await settle(action, { wait }); } finally { page.off('response', onRes); page.off('requestfailed', onFail); }
     return log.join('\n');
   }
   /** grep the page's loaded JS bundles for a string (e.g. to discover deep-link/query params). */
@@ -228,5 +264,5 @@ export function makeHelpers(page, { shotPath, cwd, tmpPrefix }) {
     return recStop(file, opts);
   }
 
-  return { sleep, goto, text, shot, styles, clickables, click, waitText, capture, netlog, grepScripts, recStart, recStop, record };
+  return { sleep, settle, goto, text, shot, styles, clickables, click, waitText, capture, netlog, grepScripts, recStart, recStop, record };
 }
