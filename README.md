@@ -7,10 +7,12 @@ Instruções de uso para o agente: [`SKILL.md`](SKILL.md).
 ## Instalação
 
 ```bash
-git clone https://github.com/iudizm/brave-cdp.git ~/code/iudi/brave-cdp
-cd ~/code/iudi/brave-cdp && npm ci
-ln -s ~/code/iudi/brave-cdp ~/.claude/skills/brave-cdp
+git clone https://github.com/iudizm/brave-cdp.git ~/.claude/skills/brave-cdp
+cd ~/.claude/skills/brave-cdp && npm ci
 ```
+
+Se preferir clonar em outro lugar, crie um symlink: `ln -s "$PWD" ~/.claude/skills/brave-cdp` (de dentro do clone).
+O `SKILL.md` chama os scripts por `~/.claude/skills/brave-cdp/bin`, então a skill precisa estar acessível nesse caminho.
 
 Requer **Linux**, Node 20+ e Brave (ou Chromium / Chromium do Playwright como fallback).
 Os scripts usam `/proc`, `setsid` (util-linux), `ss` (iproute2) e `realpath` (coreutils).
