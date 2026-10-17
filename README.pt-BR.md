@@ -4,6 +4,8 @@
 
 Skill do Claude Code para controlar um **Brave isolado** (perfil temporário próprio, CDP + Playwright) em qualquer tarefa web, sem tocar no navegador do dia a dia.
 
+![Demo do brave-cdp: busca na Wikipedia e extração de texto](docs/demo.gif)
+
 Instruções de uso para o agente: [`SKILL.md`](SKILL.md).
 
 ## Instalação

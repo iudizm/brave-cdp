@@ -4,6 +4,8 @@
 
 A Claude Code skill that drives an **isolated Brave browser** (its own temporary profile, CDP + Playwright) for any web task, without touching your everyday browser.
 
+![brave-cdp demo: searching Wikipedia and extracting text](docs/demo.gif)
+
 Instructions for the agent: [`SKILL.md`](SKILL.md).
 
 ## Installation
