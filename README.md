@@ -32,6 +32,8 @@ node $B/run.mjs -e 'await goto("https://example.com"); return text({max: 1500})'
 $B/stop.sh --clean
 ```
 
+To check an install (or a change), run `test/smoke.sh`: it drives a local page in a throwaway instance and cleans up.
+
 ## Security
 
 brave-cdp is meant for **supervised** use: you watch the session and approve what the agent does through Claude Code's
