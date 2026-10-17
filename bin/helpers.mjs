@@ -32,10 +32,44 @@ export function makeHelpers(page, { shotPath, cwd }) {
     return t.length > max ? t.slice(0, max) + `\n…[${t.length - max} more chars]` : t;
   }
   /** Screenshot; then use the Read tool on the returned path to look at it. */
-  async function shot(file = shotPath, { full = false } = {}) {
+  async function shot(file = shotPath, { full = false, selector } = {}) {
     const p = path.resolve(cwd, file);
-    await page.screenshot({ path: p, fullPage: full });
+    // A single element (logo, header, button) gives the model a smaller, sharper image than the whole page.
+    if (selector) await page.locator(selector).first().screenshot({ path: p });
+    else await page.screenshot({ path: p, fullPage: full });
     return p;
+  }
+  /**
+   * Visual identity in a few lines: palette and fonts by frequency, then the distinct text styles in use.
+   * Exact values are cheaper and more reliable than reading colors off a screenshot.
+   */
+  async function styles(selector = 'body, h1, h2, h3, h4, p, a, button, input, label, li, nav, header, footer', { max = 25 } = {}) {
+    return page.$$eval(selector, (els, max) => {
+      const hex = (c) => {
+        const m = c.match(/^rgba?\((\d+), (\d+), (\d+)(?:, ([\d.]+))?\)$/);
+        if (!m) return c;
+        const h = '#' + m.slice(1, 4).map((x) => (+x).toString(16).padStart(2, '0')).join('');
+        return m[4] === undefined || m[4] === '1' ? h : `${h}/${m[4]}`;
+      };
+      const clear = (c) => c === 'rgba(0, 0, 0, 0)' || c === 'transparent';
+      const count = (m, k) => m.set(k, (m.get(k) || 0) + 1);
+      const colors = new Map(), fonts = new Map(), kinds = new Map();
+      for (const e of els) {
+        if (!e.getClientRects().length) continue;
+        const s = getComputedStyle(e);
+        if (s.visibility === 'hidden') continue;
+        const font = s.fontFamily.split(',')[0].trim().replace(/^"|"$/g, '');
+        count(colors, hex(s.color));
+        if (!clear(s.backgroundColor)) count(colors, hex(s.backgroundColor));
+        if (s.borderTopStyle !== 'none' && s.borderTopWidth !== '0px') count(colors, hex(s.borderTopColor));
+        count(fonts, font);
+        count(kinds, `${e.tagName.toLowerCase()} ${font} ${s.fontSize}/${s.fontWeight} ${hex(s.color)}`
+          + (clear(s.backgroundColor) ? '' : ` on ${hex(s.backgroundColor)}`)
+          + (s.borderRadius !== '0px' ? ` radius ${s.borderRadius}` : ''));
+      }
+      const top = (m, n) => [...m].sort((a, b) => b[1] - a[1]).slice(0, n).map(([k, v]) => `${k} ×${v}`);
+      return [`palette: ${top(colors, 12).join(', ')}`, `fonts: ${top(fonts, 6).join(', ')}`, 'styles:', ...top(kinds, max)].join('\n');
+    }, max);
   }
   /** Visible interactive elements with a ready-to-use selector hint. Filter by regex on text/attrs. */
   async function clickables(re, { max = 80 } = {}) {
@@ -113,5 +147,5 @@ export function makeHelpers(page, { shotPath, cwd }) {
     return hits.join('\n---\n');
   }
 
-  return { sleep, goto, text, shot, clickables, click, waitText, capture, netlog, grepScripts };
+  return { sleep, goto, text, shot, styles, clickables, click, waitText, capture, netlog, grepScripts };
 }
