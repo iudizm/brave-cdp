@@ -1,0 +1,1 @@
+{ "name": "brave-cdp", "private": true, "type": "module", "dependencies": { "playwright-core": "*" } }
