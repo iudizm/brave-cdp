@@ -3,8 +3,6 @@
 # usage: stop.sh [port] [--clean]   (--clean also deletes the temporary profile)
 PORT="${CDP_PORT:-9333}"; CLEAN=0
 for a in "$@"; do case "$a" in --clean) CLEAN=1;; *) PORT="$a";; esac; done
-[[ "$PORT" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$PORT" -le 65535 ] || { echo "invalid port: $PORT" >&2; exit 1; }
-PROFILE_DIR="$(realpath -m -- "${PROFILE_DIR:-/tmp/claude-brave-$PORT}")"
 . "$(dirname "$0")/lib.sh"
 # Kill only the exact browser start.sh recorded (verified pid), never processes matched by a pattern.
 if read_state; then
@@ -15,9 +13,6 @@ if read_state; then
 else
   echo "nothing running on :$PORT"
 fi
-rm -f "$STATE" "/tmp/claude-brave-$PORT-tabs.json"
-# Only ever delete temporary profiles created by start.sh (path is canonical, so no `..` tricks).
-if [ "$CLEAN" = 1 ]; then
-  if [[ "$PROFILE_DIR" == /tmp/claude-brave-* ]]; then rm -rf "$PROFILE_DIR" "$PROFILE_DIR.log"; echo "removed $PROFILE_DIR"
-  else echo "not removing $PROFILE_DIR (not a temporary profile)"; fi
-fi
+rm -f "$STATE" "$TABS"
+# Only ever delete the temporary profile; a PROFILE_DIR chosen by the user is never touched.
+if [ "$CLEAN" = 1 ]; then rm -rf "$TMP_PROFILE" "$LOG"; echo "removed $TMP_PROFILE"; fi

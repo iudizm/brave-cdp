@@ -28,7 +28,14 @@ for (let i = 0; i < argv.length; i++) {
 }
 if (!/^[1-9]\d{0,4}$/.test(opt.port) || Number(opt.port) > 65535) { console.log(`ERR invalid port: ${opt.port}`); process.exit(2); }
 
-const stateFile = `/tmp/claude-brave-${opt.port}-tabs.json`;
+// Private per-user dir created by start.sh (see lib.sh); refuse it if it is not ours or not private.
+process.umask(0o077);
+const RUN_DIR = `/tmp/claude-brave-${process.getuid()}`;
+try {
+  const st = fs.lstatSync(RUN_DIR);
+  if (!st.isDirectory() || st.uid !== process.getuid() || (st.mode & 0o077)) throw 0;
+} catch { console.log(`ERR ${RUN_DIR} missing or unsafe. Run start.sh first.`); process.exit(2); }
+const stateFile = `${RUN_DIR}/${opt.port}-tabs.json`;
 const loadState = () => { try { return JSON.parse(fs.readFileSync(stateFile, 'utf8')); } catch { return {}; } };
 const saveState = (s) => fs.writeFileSync(stateFile, JSON.stringify(s));
 
@@ -36,7 +43,7 @@ const saveState = (s) => fs.writeFileSync(stateFile, JSON.stringify(s));
 // owned by us and launched with the recorded profile and port. Anyone can listen on a localhost port.
 function endpoint() {
   try {
-    const file = `/tmp/claude-brave-${opt.port}.instance`;
+    const file = `${RUN_DIR}/${opt.port}.instance`;
     if (fs.statSync(file).uid !== process.getuid()) return null;
     const [profile, pid, ws] = fs.readFileSync(file, 'utf8').split('\n');
     if (!/^\d+$/.test(pid) || fs.statSync(`/proc/${pid}`).uid !== process.getuid()) return null;

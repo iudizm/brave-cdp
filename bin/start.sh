@@ -4,11 +4,9 @@
 # env:   BROWSER_BIN=/path/to/chromium-like  PROFILE_DIR=dir  HEADLESS=1  WINDOW=1400,1000
 set -euo pipefail
 PORT="${1:-${CDP_PORT:-9333}}"
-[[ "$PORT" =~ ^[1-9][0-9]{0,4}$ ]] && [ "$PORT" -le 65535 ] || { echo "invalid port: $PORT" >&2; exit 1; }
-PROFILE_DIR="$(realpath -m -- "${PROFILE_DIR:-/tmp/claude-brave-$PORT}")"
-WINDOW="${WINDOW:-1400,1000}"
 . "$(dirname "$0")/lib.sh"
-LOG="$PROFILE_DIR.log"
+PROFILE_DIR="$(realpath -m -- "${PROFILE_DIR:-$TMP_PROFILE}")"
+WINDOW="${WINDOW:-1400,1000}"
 
 if read_state && [ "$S_PROFILE" = "$PROFILE_DIR" ]; then
   echo "already running on :$PORT (profile: $PROFILE_DIR)"; exit 0
@@ -31,6 +29,7 @@ fi
 [ -n "$BIN" ] || { echo "no Chromium-based browser found; set BROWSER_BIN" >&2; exit 1; }
 
 mkdir -p "$PROFILE_DIR"
+[ -O "$PROFILE_DIR" ] || { echo "profile $PROFILE_DIR is not owned by you" >&2; exit 1; }
 ARGS=(--user-data-dir="$PROFILE_DIR" --remote-debugging-port="$PORT" --no-first-run
       --no-default-browser-check --window-size="$WINDOW" --disable-features=Translate)
 [ "${HEADLESS:-0}" = "1" ] && ARGS+=(--headless=new)

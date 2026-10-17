@@ -14,7 +14,7 @@ Scripts live in `~/.claude/skills/brave-cdp/bin/` (`playwright-core` is installe
 
 | Script | What it does |
 |---|---|
-| `start.sh [port]` | Starts Brave on CDP port (default `9333`) with profile `/tmp/claude-brave-<port>`. Idempotent. Falls back to Chromium or Playwright's Chromium. Env: `HEADLESS=1`, `PROFILE_DIR=…` (persistent profile, e.g. to keep a login the user did by hand), `BROWSER_BIN=…`, `WINDOW=1400,1000`. |
+| `start.sh [port]` | Starts Brave on CDP port (default `9333`) with a temporary profile in `/tmp/claude-brave-<uid>/` (private, mode 0700). Idempotent. Falls back to Chromium or Playwright's Chromium. Env: `HEADLESS=1`, `PROFILE_DIR=…` (persistent profile, e.g. to keep a login the user did by hand), `BROWSER_BIN=…`, `WINDOW=1400,1000`. |
 | `run.mjs [--tab NAME] <file.js \| -e 'code' \| ->` | Runs a snippet as an async function body against tab `NAME` (default `main`; created on first use and remembered). The return value is printed. |
 | `run.mjs --list` / `--close NAME` | Lists or closes tabs. |
 | `stop.sh [port] [--clean]` | Kills that browser instance. `--clean` also deletes the temp profile. |
