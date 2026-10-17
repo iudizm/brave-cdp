@@ -1,0 +1,12 @@
+{
+  "name": "brave-cdp",
+  "description": "brave-cdp: an isolated Brave browser for Claude Code",
+  "owner": { "name": "iudizm", "url": "https://github.com/iudizm" },
+  "plugins": [
+    {
+      "name": "brave-cdp",
+      "source": "./",
+      "description": "Drive an isolated Brave browser (CDP + Playwright) for any web task, without touching your everyday browser"
+    }
+  ]
+}

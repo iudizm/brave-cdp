@@ -1,0 +1,10 @@
+{
+  "name": "brave-cdp",
+  "version": "0.1.0",
+  "description": "Drive an isolated Brave browser (CDP + Playwright) for any web task, without touching your everyday browser",
+  "author": { "name": "iudizm", "url": "https://github.com/iudizm" },
+  "homepage": "https://github.com/iudizm/brave-cdp",
+  "repository": "https://github.com/iudizm/brave-cdp",
+  "license": "MIT",
+  "keywords": ["browser", "brave", "playwright", "cdp", "automation", "scraping"]
+}
