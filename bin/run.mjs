@@ -61,7 +61,9 @@ function send(msg) {
 
 const res = runDirOk() ? await send(req) : null;
 if (!res) { console.log(`ERR no browser running for instance ${opt.instance}. Run start.sh first.`); process.exit(2); }
-for (const l of res.logs || []) console.log(l);
-if (res.ok) { if (res.out !== undefined) console.log(res.out); }
-else console.log(res.err);
+// Page-controlled text (titles, URLs, content) must not reach the terminal as escape sequences.
+const clean = (s) => String(s).replace(/[\x00-\x08\x0b-\x1f\x7f-\x9f]/g, (c) => `\\x${c.charCodeAt(0).toString(16).padStart(2, '0')}`);
+for (const l of res.logs || []) console.log(clean(l));
+if (res.ok) { if (res.out !== undefined) console.log(clean(res.out)); }
+else console.log(clean(res.err));
 process.exit(res.ok ? 0 : 1);

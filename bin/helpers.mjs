@@ -1,6 +1,16 @@
 // Helpers available in every snippet (see SKILL.md). Bound to one page per run.
 import path from 'path';
 
+/** Loopback, private, link-local (incl. cloud metadata) or unspecified addresses, by literal host name. */
+export function isPrivateHost(host) {
+  const h = host.replace(/^\[|\]$/g, '').toLowerCase();
+  if (h === 'localhost' || h.endsWith('.localhost') || h === '::' || h === '::1' || /^f[cd]|^fe[89ab]/.test(h)) return true;
+  const m = h.match(/^(\d+)\.(\d+)\.\d+\.\d+$/);
+  if (!m) return false;
+  const [a, b] = [+m[1], +m[2]];
+  return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+}
+
 /** @param page Playwright page; shotPath default screenshot file; cwd caller's directory (relative paths). */
 export function makeHelpers(page, { shotPath, cwd }) {
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -59,9 +69,15 @@ export function makeHelpers(page, { shotPath, cwd }) {
    * Run `action` and collect responses whose URL matches `urlRe` (JSON parsed when possible).
    * Great for reading a site's own API instead of scraping the DOM.
    */
-  async function capture(urlRe, action, { wait = 4000 } = {}) {
+  async function capture(urlRe, action, { wait = 4000, max = 50, maxBody = 200000 } = {}) {
     const rx = new RegExp(urlRe, 'i'), out = [];
-    const h = async (r) => { if (rx.test(r.url())) { const b = await r.text().catch(() => ''); let j; try { j = JSON.parse(b); } catch {} out.push({ url: r.url(), status: r.status(), body: j ?? b }); } };
+    const h = async (r) => {
+      if (!rx.test(r.url()) || out.length >= max) return;
+      let b = await r.text().catch(() => '');
+      if (b.length > maxBody) b = b.slice(0, maxBody) + `…[${b.length - maxBody} more chars]`; // huge bodies stay out of memory and context
+      let j; try { j = JSON.parse(b); } catch {}
+      out.push({ url: r.url(), status: r.status(), body: j ?? b });
+    };
     page.on('response', h);
     try { await action(); await sleep(wait); } finally { page.off('response', h); }
     return out;
@@ -76,12 +92,20 @@ export function makeHelpers(page, { shotPath, cwd }) {
     return log.join('\n');
   }
   /** grep the page's loaded JS bundles for a string (e.g. to discover deep-link/query params). */
-  async function grepScripts(needle, { ctxChars = 200, max = 10 } = {}) {
-    const srcs = await page.$$eval('script[src]', (s) => s.map((x) => x.src));
+  async function grepScripts(needle, { ctxChars = 200, max = 10, maxScripts = 40, maxBytes = 5e6 } = {}) {
+    // page.request reads responses outside the page's CORS rules, so a hostile page must not be able to point it
+    // at local/intranet services; those are fetched only when the page itself is local (testing a local app).
+    const local = isPrivateHost(new URL(page.url()).hostname || 'localhost');
+    const srcs = (await page.$$eval('script[src]', (s) => s.map((x) => x.src)))
+      .filter((s) => { try { const u = new URL(s); return /^https?:$/.test(u.protocol) && (local || !isPrivateHost(u.hostname)); } catch { return false; } })
+      .slice(0, maxScripts);
     const hits = [];
     for (const s of srcs) {
+      if (hits.length >= max) break;
       try {
-        const t = await (await page.request.get(s)).text();
+        const res = await page.request.get(s, { timeout: 15000 });
+        if (Number(res.headers()['content-length'] || 0) > maxBytes) continue;
+        const t = (await res.text()).slice(0, maxBytes);
         for (let i = t.indexOf(needle); i >= 0 && hits.length < max; i = t.indexOf(needle, i + 1))
           hits.push(`${s.split('/').pop()}: …${t.slice(Math.max(0, i - ctxChars), i + ctxChars)}…`);
       } catch {}

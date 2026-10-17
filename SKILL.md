@@ -45,9 +45,9 @@ paths for files (`shot()` resolves relative paths against the caller's directory
 - `clickables(regex?)`: visible interactive elements with a selector hint (`[data-test-id=…]`, `#id`, `[name=…]`) and their label. This is the fastest way to find what to click.
 - `click(textOrRegex | 'css=<selector>')`: clicks the first *visible* match. A string matches as literal, case-insensitive text.
 - `waitText(regex, timeout)`: waits until the page text matches.
-- `capture(urlRegex, async () => {...})`: collects (JSON-parsed) responses while running an action. Often the site's own API returns clean structured data. Read it instead of scraping.
+- `capture(urlRegex, async () => {...})`: collects (JSON-parsed) responses while running an action. Often the site's own API returns clean structured data. Read it instead of scraping. Bodies are cut at `maxBody` (200k chars), at most `max` (50) responses.
 - `netlog(async () => {...})`: request/response/failure log, for debugging stuck UIs.
-- `grepScripts(needle)`: searches the page's JS bundles. Useful to discover deep-link or query parameter names (e.g. build a results URL directly instead of filling a form).
+- `grepScripts(needle)`: searches the page's JS bundles. Useful to discover deep-link or query parameter names (e.g. build a results URL directly instead of filling a form). Scripts on local/private hosts are skipped unless the page itself is local.
 - `sleep(ms)`.
 
 Plus everything in Playwright: `page.locator`, `getByRole`, `fill`, `selectOption`, `waitForSelector`, `$$eval`, `evaluate`, `page.request`, etc.
